@@ -47,7 +47,7 @@ Launch the Quarto dashboard by opening index.qmd and rendering with quarto previ
 Interact with sliders, tabs, and plots to explore country trends
 
 Download the full dataset directly from the "Data Description" tab, 
-[View data preparation code](data_prep.html)
+[See the Data Prep Steps](data_prep.html).
 
 ## License
 This project is released for non-commercial, public health, and educational purposes. Data belongs to their respective sources (Gapminder). Dashboard authored by Moudo Macina.
