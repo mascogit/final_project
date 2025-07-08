@@ -1,0 +1,406 @@
+--- 
+format: dashboard
+theme: cerulean
+author: Moudo MACINA
+---
+
+# Measles Vaccine Coverage & Child Mortality 
+
+![](images\vaccinesavelife.png){width="35%"}
+
+# Welcome {.tabset}
+
+## Overview
+
+**Vaccines save lives — measles shows us how.**
+
+This dashboard offers an interactive journey through two decades of progress in vaccine coverage and child mortality reduction across the globe. 
+
+**Measles**, one of the most contagious and deadly childhood diseases, is entirely preventable. A single dose of the **measles-containing vaccine (MCV1)** provides strong protection and serves as a benchmark for immunization system performance.
+
+In the early 2000s, the world turned a corner. Global health partnerships like **Gavi**, **the Global Fund**, and **WHO’s Expanded Programme on Immunization (EPI)** helped scale up vaccine access—especially in low-income countries. This era marked a coordinated effort to ensure that no child dies from a vaccine-preventable disease.
+
+This dashboard helps you explore:
+
+- The evolution of MCV1 coverage and child mortality since 2000
+- Differences in progress by income level 
+- How MCV1 coverage and child mortality outcomes are connected
+
+Use the tabs above to navigate key insights and interactive visuals that reveal how vaccines have reshaped child survival—and where challenges remain.
+
+
+# Global Progress in Measles Vaccine {.tabset}
+
+## Summary Indicators {height="30%"}
+```{python}
+import pandas as pd
+import plotly.express as px
+from itables import show
+import plotly.graph_objects as go
+import statsmodels as sm
+import country_converter as coco
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+pd.set_option("mode.copy_on_write", True)
+
+panel = pd.read_csv("data/measles_panel_grouped_2000_2023.csv")
+
+
+# Summary calculations
+panel_2000 = panel[panel.year == 2000]
+panel_2023 = panel[panel.year == 2023]
+
+mcv1_change = round(
+    panel_2023["mcv1_coverage"].mean() - panel_2000["mcv1_coverage"].mean(), 1
+)
+mortality_change = round(
+    100
+    * (1 - panel_2023["child_mortality"].mean() / panel_2000["child_mortality"].mean()),
+    1,
+)
+biggest_gain = panel_2023.sort_values("mcv1_coverage", ascending=False).iloc[0][
+    "country"
+]
+```
+
+::: {.valuebox icon="activity" color="#2E8B57" title="% Decrease in Child Mortality"}
+`{python} str(mortality_change) + '%'`
+
+Between 2000 and 2023
+:::
+
+::: {.valuebox icon="arrow-up" color="#4682B4" title="% Increase in MCV1 Coverage"}
+`{python} str(mcv1_change) + '%'`
+
+Between 2000 and 2023
+:::
+
+::: {.valuebox icon="award-fill" color="#B22222" title="Top Gainer in MCV1"}
+`{python} biggest_gain`
+:::
+
+
+## MCV1 Distribution accross space and time {height="70%"}
+### 2023 Maps {width="60%"}
+```{python}
+map_2023 = panel[panel.year == 2023]
+fig_mcv1_map = px.choropleth(
+    map_2023,
+    locations="country_code",
+    color="mcv1_coverage",
+    hover_name="country",
+    title="Measles Coverage by Country (2023)",
+    color_continuous_scale="YlGnBu",
+    labels={"mcv1_coverage": "MCV1 Coverage (%)"},
+)
+fig_mcv1_map.update_layout(coloraxis_colorbar=dict(title="Coverage (%)"))
+```
+
+### Distribution Over Time {height="40%"}
+```{python}
+fig_mcv1_box = px.box(
+    panel,
+    x="gdp_group",
+    y="mcv1_coverage",
+    color="gdp_group",
+    animation_frame="year",
+    points="all",  # show all individual observations as dots
+    hover_data=["country"],  # reveal country on hover
+    category_orders={
+        "gdp_group": ["Low", "Lower-Middle", "Upper-Middle", "High"]},
+    labels={
+        "gdp_group": "Income Group",
+        "mcv1_coverage": "MCV1 Coverage (%)",
+        "year": "Year",
+    },
+    title="MCV1 Coverage by Income Group (2000–2023)",
+)
+fig_mcv1_box.update_layout(showlegend=False)
+
+```
+
+# Global Progress in Child mortality {.tabset}
+
+## Summary Indicators {height="30%"}
+
+```{python}
+# Summary calculations for child mortality
+# Compute child mortality value box indicators for 2000 and 2023
+
+panel_2000 = panel[panel.year == 2000]
+panel_2023 = panel[panel.year == 2023]
+
+# 1. % Drop in Global Child Mortality
+mortality_change = round(
+    100 * (1 - panel_2023["child_mortality"].mean() / panel_2000["child_mortality"].mean()), 1
+)
+
+# 2. Country with Greatest Drop in Child Mortality (absolute reduction)
+cm_2000 = panel_2000.set_index("country")["child_mortality"]
+cm_2023 = panel_2023.set_index("country")["child_mortality"]
+diff = cm_2000 - cm_2023
+greatest_drop_country = diff.idxmax()
+greatest_drop_value = round(diff.max(), 1)
+
+# 3. Lowest Child Mortality in 2023 (Best Performer)
+lowest_mortality_country = panel_2023.sort_values("child_mortality").iloc[0]["country"]
+lowest_mortality_value = round(panel_2023["child_mortality"].min(), 1)
+```
+
+::: {.valuebox icon="globe" color="#2E8B57" title="% Drop in Global Child Mortality"}
+`{python} str(mortality_change) + '%'`
+
+:::
+
+::: {.valuebox icon="arrow-down-circle" color="#4682B4" title="Greatest Drop (Country)"}
+`{python} greatest_drop_country`
+↓ `{python} str(greatest_drop_value)`
+:::
+
+
+::: {.valuebox icon="heart-fill" color="#B22222" title="Lowest Child Mortality (2023)"}
+`{python} lowest_mortality_country`
+`{python} str(lowest_mortality_value)`
+
+:::
+
+## Child mortality distribution accross space and time {height="70%"}
+### 2023 map for child mortality {width="60%"}
+
+```{python}
+map_2023 = panel[panel.year == 2023]
+fig_mortality_map = px.choropleth(
+    map_2023,
+    locations="country_code",
+    color="child_mortality",
+    hover_name="country",
+    title="Child Mortality by Country (2023)",
+    color_continuous_scale="OrRd",
+    labels={"child_mortality": "Deaths per 1,000 children"},
+)
+fig_mortality_map.update_layout(coloraxis_colorbar=dict(title="Child Mortality"))
+```
+### Box plot by income group for child mortality over time {width="40%"}
+```{python}
+fig_mortality_box = px.box(
+    panel,
+    x="gdp_group",
+    y="child_mortality",
+    color="gdp_group",
+    animation_frame="year",
+    points="all",
+    hover_data=["country"],
+    category_orders={"gdp_group": ["Low", "Lower-Middle", "Upper-Middle", "High"]},
+    labels={
+        "gdp_group": "Income Group",
+        "child_mortality": "Child Mortality (per 1,000)",
+        "year": "Year"
+    },
+    title="Child Mortality by Income Group (2000–2023)"
+)
+fig_mortality_box.update_layout(showlegend=False)
+```
+
+# Relationship Vaccine & Mortality {.tabset}
+
+## Row {height="50%"}
+
+### Column {.tabset width="50%"}
+
+#### Dynamic Country Trend
+```{python}
+
+fig_link = px.scatter(
+    panel,
+    x="mcv1_coverage",
+    y="child_mortality",
+    color="gdp_group",
+    animation_frame="year",
+    hover_name="country",
+    title="MCV1 vs Child Mortality by Country (2000–2023)",
+    labels={
+        "mcv1_coverage": "MCV1 Coverage (%)",
+        "child_mortality": "Child Mortality (per 1,000)",
+    },
+)
+fig_link.update_layout(
+    showlegend=True,
+    legend=dict(
+        orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5, title_text=""
+    ),
+)
+
+```
+
+#### Aggregate Trend
+```{python}
+agg_trend = (
+    panel.groupby("year")[["mcv1_coverage", "child_mortality"]].mean().reset_index()
+)
+fig_dual = px.line(
+    agg_trend,
+    x="year",
+    y=["mcv1_coverage", "child_mortality"],
+    title="Global Trends: MCV1 Coverage & Child Mortality",
+    labels={"value": "Metric", "year": "Year", "variable": "Indicator"},
+    height=500,
+)
+fig_dual.update_layout(
+    showlegend=True,
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=-0.25,
+        xanchor="center",
+        x=0.5,
+        title_text="",
+    ),
+)
+```
+### Column {.tabset width="50%"}
+
+#### Key Insights
+
+**A Transformative Era:**  
+Since 2000, countries worldwide(lower income in particular) have made dramatic progress*expanding measles vaccine (MCV1) coverage while cutting child mortality rates*.
+
+**Inverse Relationship:**  
+As MCV1 coverage rises, child mortality rates fall. This scatter plot with a year slider makes clear:  
+- **Higher vaccination rates** protect children from deadly diseases, saving millions of young lives.
+
+- Countries with rapid MCV1 scale-up (like Sierra Leone, Burkina and Niger) are also among those with the fastest mortality decline.
+
+**Persistent Inequality:**  
+Despite global gains, the pace of progress remains uneven:
+- Low-income countries still face significant gaps in both immunization and child survival.
+
+- Some regions have not yet reached universal vaccine coverage, highlighting where additional investment and health system strengthening are needed.
+
+**The Power of Vaccination:**  
+Every percentage point increase in MCV1 coverage translates into thousands more children reaching their fifth birthday.  
+Sustained commitment to vaccines, public health, and equitable access remains vital to closing the survival gap for all.
+
+*Explore the visuals:*
+- **Animated Scatter:** Watch the relationship between MCV1 and child mortality evolve for each country from 2000 to 2023.
+- **Histograms:** Discover which countries achieved the biggest leaps in saving young lives and boosting vaccine access.
+
+## Row {height="50%"}
+
+### Column {.tabset width="50%"}
+
+#### Decrease in Child Mortality
+
+```{python}
+first = panel[panel.year == 2000].set_index("country")
+last = panel[panel.year == 2023].set_index("country")
+
+mort_diff = (first["child_mortality"] - last["child_mortality"]).sort_values(ascending=False).head(10)
+mort_df = mort_diff.reset_index()
+mort_df.columns = ["country", "reduction"]
+
+fig1 = px.bar(
+    mort_df, 
+    x="reduction", 
+    y="country", 
+    orientation="h", 
+    color="country",
+    title="Top 10 Countries: Largest Decrease in Child Mortality (2000–2023)",
+    labels={"reduction": "Decrease in Child Mortality (per 1,000)", "country": "Country"}
+)
+fig1.update_layout(showlegend=False, xaxis_title="Decrease in Child Mortality", yaxis_title="Country")
+```
+
+#### Increase in MCV1 Coverage
+```{python}
+mcv1_diff = (
+    (last["mcv1_coverage"] - first["mcv1_coverage"])
+    .sort_values(ascending=False)
+    .head(10)
+)
+mcv1_df = mcv1_diff.reset_index()
+mcv1_df.columns = ["country", "increase"]
+
+fig2 = px.bar(
+    mcv1_df,
+    x="increase",
+    y="country",
+    orientation="h",
+    color="country",
+    title="Top 10 Countries: Largest Gain in MCV1 Coverage (2000–2023)",
+    labels={"increase": "Increase in MCV1 Coverage (%)", "country": "Country"}
+)
+fig2.update_layout(
+    showlegend=False, xaxis_title="Increase in MCV1 Coverage", yaxis_title="Country"
+)
+```
+
+### Column {.tabset width="50%"}
+
+#### Lowest Child Mortality (2023)
+```{python}
+lowest_mort = last.nsmallest(10, "child_mortality").reset_index()
+fig3 = px.bar(
+    lowest_mort,
+    x="child_mortality",
+    y="country",
+    orientation="h",
+    color="country",
+    title="Top 10 Countries: Lowest Child Mortality (2023)",
+    labels={"child_mortality": "Child Mortality(per 1,000)", "country": "Country"}
+)
+fig3.update_layout(showlegend=False, xaxis_title="Child Mortality", yaxis_title="Country")
+```
+#### Highest MCV1 Coverage (2023)
+```{python}
+# Highest MCV1 Coverage (2023)
+highest_mcv1 = last.nlargest(10, "mcv1_coverage").reset_index()
+fig4 = px.bar(
+    highest_mcv1,
+    x="mcv1_coverage",
+    y="country",
+    orientation="h",
+    color="country",
+    title="Top 10 Countries: Highest MCV1 Coverage (2023)",
+    labels={"mcv1_coverage": "MCV1 Coverage (%)", "country": "Country"}
+)
+fig4.update_layout(showlegend=False, xaxis_title="MCV1 Coverage", yaxis_title="Country")
+
+```
+# DATA
+
+## About
+
+### {width="60%"}
+
+**Data Description**
+
+This dashboard utilizes a comprehensive dataset derived from [Gapminder’s public data repository](https://www.gapminder.org/data/).
+
+It focuses on three key indicators:
+- **MCV1 Coverage (%):** Share of children receiving the first dose of measles-containing vaccine. Critical for monitoring immunization program reach and population immunity.  
+  *Source: WHO/Gapminder/Gavi*
+- **Child Mortality (0–5 years):** Deaths of children under five per 1,000 live births. A crucial measure of health system performance and child survival.  
+  *Source: Gapminder/UNICEF/World Bank*
+- **GDP per Capita (PPP, Intl $):** Economic indicator used to classify countries into income groups (Low, Lower-Middle, Upper-Middle, High).  
+  *Source: Gapminder/World Bank*
+
+The data has been cleaned, merged, and transformed to long format, facilitating trend analysis from 2000–2023 across countries and income regions.[View the full data prep steps](data_prep.html)
+
+
+You can download the full, cleaned dataset used in this dashboard as a CSV file:
+
+### {width="40%"}
+
+```{python}
+# Display full dataset with itables
+import pandas as pd
+import itables
+
+itables.show(
+    pd.read_csv("data/measles_panel_grouped_2000_2023.csv").head(50),
+    caption="Preview: First 50 rows of merged panel data",
+    buttons=["csvHtml5"],
+)
+
+```

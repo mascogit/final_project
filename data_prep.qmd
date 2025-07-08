@@ -1,0 +1,121 @@
+---
+title: "GAPMINDER | Vaccine Coverage and Child Mortality: Data Preparation"
+format: html  
+author: Moudo Macina
+---
+
+# Package Loading
+```{python}
+# Package Loading
+import pandas as pd
+import plotly.express as px
+from itables import show
+import country_converter as coco
+pd.set_option("mode.copy_on_write", True)
+```
+
+# Data Loading 
+```{python}
+# Load raw data from gapminder
+## Indicators 
+mcv1 = pd.read_csv("data/raw/measles_mcv1_coverage.csv")
+child_mortality = pd.read_csv("data/raw/child_mortality.csv")
+gdp_pcapita = pd.read_csv("data/raw/gdp_per_person.csv")
+```
+
+# Wide to Long Conversion
+```{python}
+def tidy_long(df, var_name):
+    df_long = df.melt(id_vars=["country"], var_name="year", value_name=var_name)
+    df_long["year"] = pd.to_numeric(df_long["year"], errors="coerce")
+    df_long.dropna(subset=["year"], inplace=True)
+    df_long["country"] = df_long["country"].str.strip()
+    replacements = {"UAE": "United Arab Emirates", "Channel Islands": "UK"}
+    df_long["country"] = df_long["country"].replace(replacements)
+    df_long["country_code"] = coco.convert(names=df_long["country"], to="ISO3", not_found="nan")
+    return df_long
+```
+
+# Apply to datasets
+```{python}
+mcv1_long = tidy_long(mcv1, "mcv1_coverage")
+child_mortality_long = tidy_long(child_mortality, "child_mortality")
+gdp_pcapita_long = tidy_long(gdp_pcapita, "gdp_pcapita")
+```
+
+# Merge to create full Panel Dataset
+```{python}
+ # Step 1: Start with mcv1_long as anchor
+panel = mcv1_long.copy()
+```
+
+```{python}
+# Step 2: Merge to child mortality then gdp per capita
+panel = panel.merge(child_mortality_long, on=["country_code", "year"], how="left")
+panel = panel.merge(gdp_pcapita_long, on=["country_code", "year"], how="left")
+```
+
+# Convert core variables to numeric
+```{python}
+# Convert core variables to numeric
+panel["mcv1_coverage"] = pd.to_numeric(panel["mcv1_coverage"], errors="coerce")
+panel["child_mortality"] = pd.to_numeric(panel["child_mortality"], errors="coerce")
+```
+
+```{python}
+# Special cleaning for a particualar gdp_pcapita column
+# First, ensure the column is string type
+panel["gdp_pcapita"] = panel["gdp_pcapita"].astype(str)
+
+# Replace values like '104k' with '104000' using regex
+panel["gdp_pcapita"] = panel["gdp_pcapita"].str.replace(
+    r"([0-9.]+)[kK]",  # match numbers ending in 'k' or 'K'
+    lambda m: str(float(m.group(1)) * 1000), 
+    regex=True
+)
+# Now convert to numeric
+panel["gdp_pcapita"] = pd.to_numeric(panel["gdp_pcapita"], errors="coerce")
+```
+
+# Generate income groups using 4 quantiles
+
+```{python}
+# Generate income group *only* where GDP is available
+panel["gdp_group"] = pd.qcut(
+    panel["gdp_pcapita"], q=4, labels=["Low", "Lower-Middle", "Upper-Middle", "High"])
+```
+
+# Save full panel unmodified data, a good practice
+```{python}
+# A good practice to save unmodified back-up  
+panel.to_csv("data/measles_panel_full.csv", index=False)
+```
+# Quick and safe cleanup and reorder columns
+
+```{python}
+# If you confirmed 'country_x' and 'country_y' are the same
+panel["country"] = panel["country_x"]
+panel = panel.drop(columns=["country_x", "country_y"])
+```
+ 
+```{python}
+# Reoder columns in dataset
+panel = panel[[
+    "country",
+    "country_code",
+    "year",
+    "mcv1_coverage",
+    "child_mortality",
+    "gdp_group",
+    "gdp_pcapita"
+]]
+```
+
+# Save cleaned and final merged panel data 
+```{python}
+# Filter for years between 2000 and 2023 and save clean panel data
+panel_filtered = panel[(panel["year"] >= 2000) & (panel["year"] <= 2023)]
+
+# Save clean panel measles and child mortality data
+panel_filtered.to_csv("data/measles_panel_grouped_2000_2023.csv", index=False)
+```
