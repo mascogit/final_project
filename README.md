@@ -9,7 +9,7 @@ Tools: Quarto · Python · Plotly · pandas · Gapminder data
 # Overview
 This dashboard explores global trends in measles vaccine coverage (MCV1) and under-five child mortality between 2000 and 2023. It highlights how expanded immunization—especially in low-income settings—has driven substantial improvements in child survival.
 
-The dashboard visualizes:
+The dashboard visualizes [View the Dashboard](https://mascogit.github.io/final_project/):
 
 -Changes in MCV1 coverage and child mortality over time
 
